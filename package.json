@@ -1,0 +1,36 @@
+{
+  "name": "livesteam",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "ts-node ./src/index.ts",
+    "dev": "ts-node-dev --respawn --transpile-only ./src/index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Anas Mazouni",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/ffmpeg": "^1.0.4",
+    "@types/fluent-ffmpeg": "^2.1.21",
+    "@types/node": "^20.5.9",
+    "@typescript-eslint/eslint-plugin": "^6.6.0",
+    "@typescript-eslint/parser": "^6.6.0",
+    "eslint": "^8.48.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.0",
+    "prettier": "^3.0.3",
+    "ts-node": "^10.9.1",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.2.2"
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "envalid": "^7.3.1",
+    "fastify": "^4.22.2",
+    "fluent-ffmpeg": "^2.1.2",
+    "throttle": "^1.0.3",
+    "uuid": "^9.0.0"
+  }
+}
