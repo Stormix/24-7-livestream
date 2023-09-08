@@ -1,11 +1,17 @@
 import express from 'express';
 import ffmpeg from 'fluent-ffmpeg';
-import Queue from './queue';
+import { AUDIO_ENDPOINT, VIDEO_ENDPOINT } from './config/app';
+import { env } from './env';
+import { http, logger } from './logger';
+import AudioQueue from './queues/audio';
+import VideoQueue from './queues/video';
 
 const main = async () => {
   const app = express();
 
-  app.get('/audio.mp3', (req, res) => {
+  app.use(http);
+
+  app.get(AUDIO_ENDPOINT, (_, res) => {
     res
       .set({
         'Content-Type': 'audio/mp3',
@@ -13,45 +19,51 @@ const main = async () => {
       })
       .status(200);
 
-    const queue = new Queue(res);
+    return new AudioQueue(res).next();
+  });
 
-    queue.loadTracksFromFolder('./assets');
-    queue.next();
+  app.get(VIDEO_ENDPOINT, (_, res) => {
+    res
+      .set({
+        'Content-Type': 'video/mp4',
+        'Transfer-Encoding': 'chunked'
+      })
+      .status(200);
+
+    return new VideoQueue(res).next();
   });
 
   return Promise.all([
-    app.listen(6969, () => {
-      console.log('Server running on port http://localhost:6969/audio.mp3');
+    app.listen(env.PORT, () => {
+      logger.info(`Server running on port http://localhost:${env.PORT}`);
+      logger.info(`> Audio stream running on http://localhost:${env.PORT}${AUDIO_ENDPOINT}`);
+      logger.info(`> Video stream running on http://localhost:${env.PORT}${VIDEO_ENDPOINT}`);
     }),
-    new Promise((resolve, reject) => {
+    new Promise((resolve, reject) =>
       ffmpeg()
-        .input('./assets/bunny.mp4')
+        .input(`http://localhost:${env.PORT}${VIDEO_ENDPOINT}`)
         .addInputOption('-stream_loop -1')
-        .input('http://localhost:6969/audio.mp3') // https://localhost:3000/audio.mp3
+        .input(`http://localhost:${env.PORT}${AUDIO_ENDPOINT}`) // http://hyades.shoutca.st:8043/stream
         .addInputOption('-stream_loop -1')
         .addOption('-map', '0:v')
         .addOption('-map', '1:a')
         .addInputOption('-re')
         .videoCodec('copy')
-        .on('start', (commandLine) => {
-          console.log('Spawned Ffmpeg with command: ' + commandLine);
+        .on('start', () => {
+          logger.info('Started Live Stream on: ' + env.STREAM_URL);
         })
-        .on('error', (e) => {
-          return reject(e);
-        })
-        .on('end', () => {
-          return resolve('Resolved');
-        })
+        .on('error', (e) => reject(e))
+        .on('end', () => resolve('Resolved'))
         .format('flv')
-        .output('rtmp://localhost/live/bunny', {
+        .output(`${env.STREAM_URL}/${env.STREAM_KEY}`, {
           end: true
         })
-        .run();
-    })
+        .run()
+    )
   ]);
 };
 
 main().catch((error) => {
-  console.error(error);
+  logger.error('FATAL:' + error.message);
   process.exit(1);
 });

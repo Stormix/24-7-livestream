@@ -1,8 +1,8 @@
 import { configDotenv } from 'dotenv';
-import { cleanEnv, str } from 'envalid';
+import { cleanEnv, port, str } from 'envalid';
 
 // Load .env file
-configDotenv();
+configDotenv({ path: '.env.local' });
 
 export const env = cleanEnv(process.env, {
   NODE_ENV: str({
@@ -13,7 +13,16 @@ export const env = cleanEnv(process.env, {
     default: ''
   }),
   STREAM_URL: str({
-    default: 'rtmp://localhost/live/test'
+    default: ''
+  }),
+  PORT: port({
+    default: 6969
+  }),
+  VIDEO_DIRECTORY: str({
+    default: './assets/videos'
+  }),
+  AUDIO_DIRECTORY: str({
+    default: './assets/audio'
   })
 });
 
