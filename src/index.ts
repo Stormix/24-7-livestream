@@ -1,12 +1,14 @@
-import { AUDIO_ENDPOINT, VIDEO_ENDPOINT } from '@/config/app';
+import { AUDIO_ENDPOINT } from '@/config/app';
 import bree from '@/lib/bree';
 import { env } from '@/lib/env';
 import Logger from '@/lib/logger';
 import AudioQueue from '@/lib/queues/audio';
 import Graceful from '@ladjs/graceful';
 import express from 'express';
+import ffmpeg from 'fluent-ffmpeg';
 import http from 'http';
 import retry from 'p-retry';
+
 const logger = new Logger({name: 'main'});
 
 const main = async () => {
@@ -27,7 +29,6 @@ const main = async () => {
   server.listen(env.PORT, () => {
     logger.info(`🚀 Server running on port ${env.PORT}! (${env.NODE_ENV})`);
     logger.info(`- Audio stream running on http://localhost:${env.PORT}${AUDIO_ENDPOINT}`);
-    logger.info(`- Video stream running on http://localhost:${env.PORT}${VIDEO_ENDPOINT}`);
   });
 
   const graceful = new Graceful({
@@ -40,30 +41,29 @@ const main = async () => {
 
   bree.start();
 
-  return new Promise((resolve, reject) => resolve("Resolved")
-  // ffmpeg()
-  //     .input(`list.txt`)
-  //     .addInputOption('-f concat')
-  //     .addInputOption('-stream_loop -1')
-  //     .input(`http://localhost:${env.PORT}${AUDIO_ENDPOINT}`)
-  //     .addInputOption('-stream_loop -1')
-  //     .addOption('-map', '0:v')
-  //     .addOption('-map', '1:a')
-  //     .addInputOption('-re')
-  //     .videoCodec('copy')
-  //     .on('start', () => {
-  //       logger.info('Started Live Stream on: ' + env.STREAM_URL);
-  //     })
-  //     .on('error', (e) => {
-  //       server.close();
-  //       reject(e);
-  //     })
-  //     .on('end', () => resolve('Resolved'))
-  //     .format('flv')
-  //     .output(`${env.STREAM_URL}/${env.STREAM_KEY}`, {
-  //       end: true
-  //     })
-  //     .run()
+  return new Promise((resolve, reject) => ffmpeg()
+      .input(`list.txt`)
+      .addInputOption('-f concat')
+      .addInputOption('-stream_loop -1')
+      .input(`http://localhost:${env.PORT}${AUDIO_ENDPOINT}`)
+      .addInputOption('-stream_loop -1')
+      .addOption('-map', '0:v')
+      .addOption('-map', '1:a')
+      .addInputOption('-re')
+      .videoCodec('copy')
+      .on('start', () => {
+        logger.info('Started Live Stream on: ' + env.STREAM_URL);
+      })
+      .on('error', (e) => {
+        server.close();
+        reject(e);
+      })
+      .on('end', () => resolve('Resolved'))
+      .format('flv')
+      .output(`${env.STREAM_URL}/${env.STREAM_KEY}`, {
+        end: true
+      })
+      .run()
   );
 };
 
