@@ -3,10 +3,11 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "type": "module",
   "scripts": {
-    "start":  "node ./dist/index.js",
-    "dev": "ts-node-dev --respawn --transpile-only ./src/index.ts",
-    "build": "tsc",
+    "start": "node ./dist/index.js",
+    "dev": "nodemon -I --exec node --experimental-specifier-resolution=node  --loader ts-node/esm ./src/index.ts",
+    "build": "tsc -p .",
     "prebuild": "rimraf ./dist",
     "lint": "eslint --ext .ts ./src",
     "lint:fix": "eslint --fix --ext .ts ./src",
@@ -33,7 +34,6 @@
     "prettier": "^3.0.3",
     "rimraf": "^5.0.1",
     "ts-node": "^10.9.1",
-    "ts-node-dev": "^2.0.0",
     "typescript": "^5.2.2"
   },
   "dependencies": {
@@ -42,6 +42,8 @@
     "express": "^4.18.2",
     "fluent-ffmpeg": "^2.1.2",
     "glob": "^10.3.4",
+    "nodemon": "^3.0.1",
+    "p-retry": "^6.0.0",
     "pino": "^8.15.1",
     "pino-http": "^8.5.0",
     "pino-pretty": "^10.2.0",
