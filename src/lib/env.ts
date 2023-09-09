@@ -1,20 +1,13 @@
-import { configDotenv } from 'dotenv';
-import { cleanEnv, port, str } from 'envalid';
+import { cleanEnv, num, port, str } from 'envalid';
 
 // Load .env file
-configDotenv({ path: '.env.local' });
-
 export const env = cleanEnv(process.env, {
   NODE_ENV: str({
     choices: ['development', 'production', 'test'],
     default: 'development'
   }),
-  STREAM_KEY: str({
-    default: ''
-  }),
-  STREAM_URL: str({
-    default: ''
-  }),
+  STREAM_KEY: str(),
+  STREAM_URL: str(),
   PORT: port({
     default: 6969
   }),
@@ -23,7 +16,10 @@ export const env = cleanEnv(process.env, {
   }),
   AUDIO_DIRECTORY: str({
     default: './assets/audio'
-  })
+  }),
+  RETRIES: num({
+    default: 3
+  }),
 });
 
 export type Env = typeof env;

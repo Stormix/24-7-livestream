@@ -4,3 +4,4 @@ assets
 
 inspiration.js
 dist/
+*.env
