@@ -1,8 +1,8 @@
+import { Track } from '@/types/queue';
 import { globSync } from 'glob';
 import { v4 } from 'uuid';
 import Queue from '.';
 import { env } from '../env';
-import { Track } from '../types/queue';
 
 /**
  * A queue of audio tracks to be played.

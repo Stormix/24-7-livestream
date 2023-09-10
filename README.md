@@ -9,11 +9,12 @@ A tool to create a 24/7 livestream from a given list of videos and audio files. 
 
 - [FFmpeg](https://ffmpeg.org/download.html)
 - [Node.js](https://nodejs.org/en/download/)
+- [Bun](https://bun.sh)
 
 ### Install
 
 ```bash
-pnpm install
+bun install
 ```
 
 ## Usage
@@ -27,23 +28,25 @@ The configuration is done in the `.env` file. The following variables are availa
 | `STREAM_URL` | The URL of the livestream. | `rtmp://localhost/live` |
 | `VIDEO_DIRECTORY` | The directory where the videos are located. | `./videos` |
 | `AUDIO_DIRECTORY` | The directory where the audio files are located. | `./audio` |
+| `PORT` | The port of the webserver. | `3000` |
+| `RETRIES` | The number of retries when ffmpeg fails. | `3` |
 
 ### Start
 
 ```bash
-pnpm start
+bun start
 ```
 
 ### Development
 
 ```bash
-pnpm dev
+bun dev
 ```
 
 ### Build
 
 ```bash
-pnpm build
+bun build
 ```
 
 ## Docker
