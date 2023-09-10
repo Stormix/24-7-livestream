@@ -1,17 +1,34 @@
+import { env } from '@/lib/env';
 import { Track } from '@/types/queue';
+import { TrackType } from '@prisma/client';
 import { globSync } from 'glob';
 import Throttle from 'throttle';
 import { v4 } from 'uuid';
 import Queue from '.';
-import { env } from '@/lib/env';
+import Livestream from '../livestream';
 
 /**
  * A queue for video tracks.
  */
 class VideoQueue extends Queue<Track> {
+  constructor(livestream: Livestream, stream: NodeJS.WritableStream) {
+    super(livestream, stream, env.VIDEO_DIRECTORY);
+  }
 
-  constructor(stream: NodeJS.WritableStream,) {
-    super(stream, env.VIDEO_DIRECTORY);
+  async loadFromDB() {
+    this._logger.info('Loading video tracks from database');
+    const tracks = await this.livestream.prisma.track.findMany({
+      where: {
+        type: TrackType.VIDEO
+      }
+    });
+
+    for (const track of tracks) {
+      this.enqueue({
+        id: track.id,
+        path: track.path
+      });
+    }
   }
 
   /**
@@ -36,7 +53,6 @@ class VideoQueue extends Queue<Track> {
 
     this._throttle = new Throttle(bitrate / 8);
 
-    
     return this.current.stream
       .pipe(this._throttle)
       .on('data', (chunk) => {
@@ -46,7 +62,7 @@ class VideoQueue extends Queue<Track> {
         this.next();
       })
       .on('error', (e) => {
-        this._logger.error("Failed to throttle: ",e);
+        this._logger.error('Failed to throttle: ', e);
         this.next();
       });
   }

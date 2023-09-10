@@ -1,0 +1,22 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum TrackType {
+  AUDIO
+  VIDEO
+}
+
+model Track {
+   id String @id @default(auto()) @map("_id") @db.ObjectId
+   path String
+   type TrackType
+}

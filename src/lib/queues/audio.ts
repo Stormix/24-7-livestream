@@ -1,15 +1,35 @@
 import { Track } from '@/types/queue';
+import { TrackType } from '@prisma/client';
 import { globSync } from 'glob';
 import { v4 } from 'uuid';
 import Queue from '.';
 import { env } from '../env';
+import Livestream from '../livestream';
 
 /**
  * A queue of audio tracks to be played.
  */
 class AudioQueue extends Queue<Track> {
-  constructor(stream: NodeJS.WritableStream) {
-    super(stream, env.AUDIO_DIRECTORY);
+  constructor(livestream: Livestream, stream: NodeJS.WritableStream) {
+    super(livestream, stream, env.AUDIO_DIRECTORY);
+  }
+
+  async loadFromDB() {
+    this._logger.info('Loading video tracks from database');
+    const tracks = await this.livestream.prisma.track.findMany({
+      where: {
+        type: TrackType.AUDIO
+      }
+    });
+
+    this._logger.info('Loaded tracks from database', tracks.length);
+
+    for (const track of tracks) {
+      this.enqueue({
+        id: track.id,
+        path: track.path
+      });
+    }
   }
 
   /**
@@ -25,7 +45,6 @@ class AudioQueue extends Queue<Track> {
       });
     }
   }
-
 }
 
 export default AudioQueue;
