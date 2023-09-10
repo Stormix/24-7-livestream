@@ -1,8 +1,10 @@
+import { LoadNextVideoJobData } from '@/jobs/load-next-video';
 import { env } from '@/lib/env';
 import { Track } from '@/types/queue';
 import { TrackType } from '@prisma/client';
+// import { getVideoDurationInSeconds } from 'get-video-duration';
+import { add } from 'date-fns';
 import { globSync } from 'glob';
-import Throttle from 'throttle';
 import { v4 } from 'uuid';
 import Queue from '.';
 import Livestream from '../livestream';
@@ -11,8 +13,8 @@ import Livestream from '../livestream';
  * A queue for video tracks.
  */
 class VideoQueue extends Queue<Track> {
-  constructor(livestream: Livestream, stream: NodeJS.WritableStream) {
-    super(livestream, stream, env.VIDEO_DIRECTORY);
+  constructor(livestream: Livestream) {
+    super(livestream, env.VIDEO_DIRECTORY);
   }
 
   async loadFromDB() {
@@ -38,6 +40,10 @@ class VideoQueue extends Queue<Track> {
   async loadFromFolder(path: string) {
     this._logger.info(`Loading video tracks from ${path}`);
     for (const track of globSync(`${path}/**/*.mp4`)) {
+      // Skip video.mp4
+      if (track.endsWith('video.mp4')) {
+        continue;
+      }
       this.enqueue({
         id: v4(),
         path: track
@@ -45,26 +51,20 @@ class VideoQueue extends Queue<Track> {
     }
   }
 
-  async start(): Promise<NodeJS.ReadableStream> {
-    const track = this.current;
-    const bitrate = await this.bitrate(track);
+  async start() {
+    // Get current file duration
+    // const track = this.current;
+    // const duration = await getVideoDurationInSeconds(track.path);
+    const nextVideo = this.peek();
 
-    this._logger.info('Starting track', track.path, bitrate);
+    const scheduleAt = add(new Date(), { seconds: 60 });
 
-    this._throttle = new Throttle(bitrate / 8);
+    this._logger.info(`Scheduling next video (${nextVideo.path}) to load at ${scheduleAt.toISOString()}`);
 
-    return this.current.stream
-      .pipe(this._throttle)
-      .on('data', (chunk) => {
-        this._stream.write(chunk);
-      })
-      .on('end', () => {
-        this.next();
-      })
-      .on('error', (e) => {
-        this._logger.error('Failed to throttle: ', e);
-        this.next();
-      });
+    // schedule a task to replace the video.mp4 file with the next video
+    this.livestream.agenda.schedule(scheduleAt, 'load-next-video', {
+      videoPath: nextVideo.path
+    } as LoadNextVideoJobData);
   }
 }
 

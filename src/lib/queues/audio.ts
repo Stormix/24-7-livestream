@@ -1,17 +1,20 @@
 import { Track } from '@/types/queue';
 import { TrackType } from '@prisma/client';
+import { createReadStream, existsSync } from 'fs';
 import { globSync } from 'glob';
+import Throttle from 'throttle';
 import { v4 } from 'uuid';
 import Queue from '.';
 import { env } from '../env';
 import Livestream from '../livestream';
+import { downloadFile } from '../utils';
 
 /**
  * A queue of audio tracks to be played.
  */
 class AudioQueue extends Queue<Track> {
-  constructor(livestream: Livestream, stream: NodeJS.WritableStream) {
-    super(livestream, stream, env.AUDIO_DIRECTORY);
+  constructor(livestream: Livestream) {
+    super(livestream, env.AUDIO_DIRECTORY);
   }
 
   async loadFromDB() {
@@ -44,6 +47,46 @@ class AudioQueue extends Queue<Track> {
         path: track
       });
     }
+  }
+
+  /**
+   * Starts playing the current track.
+   */
+  async start(response?: NodeJS.WritableStream): Promise<void> {
+    if (!response) return;
+
+    const track = this.current;
+    const bitrate = await this.bitrate(track);
+
+    this._logger.info('Starting track', track.path, bitrate);
+
+    this._throttle = new Throttle(bitrate / 8);
+
+    let stream: NodeJS.ReadableStream;
+
+    if (this.current.path.startsWith('http')) {
+      const tmpFile = `${this.livestream.tmpDir!.path}/${this.current.id}.mp3`;
+      if (!existsSync(tmpFile)) {
+        this._logger.info('Downloading track to temp file', tmpFile);
+        await downloadFile(this.current.path, tmpFile);
+      }
+      stream = createReadStream(tmpFile);
+    } else {
+      stream = createReadStream(this.current.path);
+    }
+
+    stream
+      .pipe(this._throttle)
+      .on('data', (chunk) => {
+        response.write(chunk);
+      })
+      .on('end', () => {
+        this.next(response);
+      })
+      .on('error', (e) => {
+        this._logger.error('Failed to throttle: ', e);
+        this.next(response);
+      });
   }
 }
 

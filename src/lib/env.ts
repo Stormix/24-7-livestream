@@ -1,4 +1,7 @@
+import dotenv from 'dotenv';
 import { cleanEnv, num, port, str } from 'envalid';
+
+dotenv.config();
 
 // Load .env file
 export const env = cleanEnv(process.env, {
@@ -20,6 +23,7 @@ export const env = cleanEnv(process.env, {
   RETRIES: num({
     default: 3
   }),
+  DATABASE_URL: str()
 });
 
 export type Env = typeof env;

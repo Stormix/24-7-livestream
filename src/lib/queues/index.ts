@@ -2,15 +2,12 @@ import { AUDIO_BITRATE } from '@/config/app';
 import Logger from '@/lib/logger';
 import { QueueItem as Item } from '@/types/queue';
 import ffmpeg from 'fluent-ffmpeg';
-import { createReadStream, existsSync } from 'fs';
 import Throttle from 'throttle';
 import Livestream from '../livestream';
-import { downloadFile } from '../utils';
 
 abstract class Queue<T extends Item> {
   protected _queue: T[];
   protected _throttle!: Throttle;
-  protected _stream: NodeJS.WritableStream;
   protected _current: number = 0;
   protected _logger: Logger = new Logger({ name: this.constructor.name });
 
@@ -21,11 +18,9 @@ abstract class Queue<T extends Item> {
    */
   constructor(
     public readonly livestream: Livestream,
-    stream: NodeJS.WritableStream,
     folder?: string
   ) {
     this._queue = [];
-    this._stream = stream;
 
     this.loadFromFolder(folder ?? './assets');
     this.loadFromDB();
@@ -41,6 +36,10 @@ abstract class Queue<T extends Item> {
 
   isEmpty() {
     return this._queue.length === 0;
+  }
+
+  peek() {
+    return this._queue[(this._current + 1) % this._queue.length];
   }
 
   /**
@@ -59,9 +58,11 @@ abstract class Queue<T extends Item> {
   /**
    * Plays the next audio track in the queue.
    */
-  next() {
+  next(): void;
+  next(response: NodeJS.WritableStream): void;
+  next(response?: NodeJS.WritableStream) {
     this._current = (this._current + 1) % this._queue.length;
-    this.start();
+    this.start(response);
   }
 
   /**
@@ -72,6 +73,9 @@ abstract class Queue<T extends Item> {
     return this._queue[this._current];
   }
 
+  /**
+   * Loads items from the database.
+   */
   abstract loadFromDB(): void;
 
   /**
@@ -80,44 +84,7 @@ abstract class Queue<T extends Item> {
    */
   abstract loadFromFolder(path: string): void;
 
-  /**
-   * Starts playing the current track.
-   */
-
-  async start(): Promise<NodeJS.ReadableStream> {
-    const track = this.current;
-    const bitrate = await this.bitrate(track);
-
-    this._logger.info('Starting track', track.path, bitrate);
-
-    this._throttle = new Throttle(bitrate / 8);
-
-    let stream: NodeJS.ReadableStream;
-
-    if (this.current.path.startsWith('http')) {
-      const tmpFile = `${this.livestream.tmpDir!.path}/${this.current.id}.mp3`;
-      if (!existsSync(tmpFile)) {
-        this._logger.info('Downloading track to temp file', tmpFile);
-        await downloadFile(this.current.path, tmpFile);
-      }
-      stream = createReadStream(tmpFile);
-    } else {
-      stream = createReadStream(this.current.path);
-    }
-
-    return stream
-      .pipe(this._throttle)
-      .on('data', (chunk) => {
-        this._stream.write(chunk);
-      })
-      .on('end', () => {
-        this.next();
-      })
-      .on('error', (e) => {
-        this._logger.error('Failed to throttle: ', e);
-        this.next();
-      });
-  }
+  abstract start(response?: NodeJS.WritableStream): void;
 }
 
 export default Queue;

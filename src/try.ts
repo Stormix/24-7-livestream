@@ -1,30 +1,19 @@
-import https from 'https';
+import Ffmpeg from 'fluent-ffmpeg';
 
 const main = async () => {
-  const url = 'https://download.samplelib.com/mp3/sample-3s.mp3';
+  const file = './assets/videos/bunny.mp4';
 
-  const streamFromUrl = (url: string) => {
-    return new Promise<NodeJS.ReadableStream>((resolve, reject) => {
-      https
-        .get(url, (res) => {
-          resolve(res);
-        })
-        .on('error', (e) => {
-          reject(e);
-        });
-    });
-  };
-
-  return (await streamFromUrl(url))
-    .on('error', (e) => {
-      console.error(e);
-    })
-    .on('data', (chunk) => {
-      console.log(chunk);
-    });
+  return Ffmpeg.ffprobe(file, async (err, metadata) => {
+    console.log(err, metadata);
+  });
 };
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+main()
+  .then((res) => {
+    console.log('Done', res);
+    process.exit(0);
+  })
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });

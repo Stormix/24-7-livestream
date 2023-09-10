@@ -1,7 +1,8 @@
 import { AUDIO_ENDPOINT } from '@/config/app';
+import registerJobs from '@/jobs';
+import { Agenda } from '@hokify/agenda';
 import Graceful from '@ladjs/graceful';
 import { PrismaClient } from '@prisma/client';
-import Bree from 'bree';
 import express, { Application } from 'express';
 import ffmpeg from 'fluent-ffmpeg';
 import { Server } from 'http';
@@ -9,6 +10,7 @@ import tmp from 'tmp-promise';
 import { env } from './env';
 import Logger from './logger';
 import AudioQueue from './queues/audio';
+import VideoQueue from './queues/video';
 
 class Livestream {
   public server: Server;
@@ -17,19 +19,25 @@ class Livestream {
   public logger: Logger = new Logger({ name: 'main' });
   public tmpDir: tmp.DirectoryResult | undefined = undefined;
   public graceful: Graceful;
+  public audioQueue: AudioQueue;
+  public videoQueue: VideoQueue;
+  public agenda: Agenda;
 
-  public liveOnStart: boolean = false;
+  public liveOnStart: boolean = true;
 
-  constructor(public bree: Bree) {
+  constructor() {
     this.app = express();
     this.prisma = new PrismaClient();
     this.server = new Server(this.app);
+    this.agenda = new Agenda({ db: { address: env.DATABASE_URL } });
     this.graceful = new Graceful({
       servers: [],
       customHandlers: [async () => this.stop()],
-      brees: [this.bree],
       logger: this.logger.getSubLogger({ name: 'graceful' })
     });
+
+    this.audioQueue = new AudioQueue(this);
+    this.videoQueue = new VideoQueue(this);
 
     this.registerRoutes();
   }
@@ -43,20 +51,25 @@ class Livestream {
         })
         .status(200);
 
-      return new AudioQueue(this, res).next();
+      return this.audioQueue.next(res);
     });
   }
 
   public async start() {
     this.tmpDir = await tmp.dir({ unsafeCleanup: true });
     this.graceful.listen();
-    this.bree.start();
+
+    await registerJobs(this);
+
+    await this.agenda.start();
     await this.prisma.$connect();
 
     this.server.listen(env.PORT, () => {
       this.logger.info(`🚀 Server running on port ${env.PORT}! (${env.NODE_ENV})`);
       this.logger.info(`- Audio stream running on http://localhost:${env.PORT}${AUDIO_ENDPOINT}`);
     });
+
+    this.videoQueue.start();
 
     return this.livestream();
   }
@@ -65,6 +78,7 @@ class Livestream {
     this.server.close();
     await this.prisma.$disconnect();
     this.tmpDir?.cleanup();
+    this.agenda.stop();
   }
 
   public async livestream() {
